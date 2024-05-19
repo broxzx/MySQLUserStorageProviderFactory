@@ -35,7 +35,7 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
         PARAM_TO_SQL_FIELD.put("email", "email");
         PARAM_TO_SQL_FIELD.put("firstName", "first_name");
         PARAM_TO_SQL_FIELD.put("lastName", "last_name");
-        // Добавьте другие маппинги по мере необходимости
+        // add other mappings
     }
 
     private KeycloakSession session;
