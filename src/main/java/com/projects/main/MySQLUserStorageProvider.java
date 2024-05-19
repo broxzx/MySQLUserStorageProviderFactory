@@ -19,10 +19,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 
@@ -31,6 +28,15 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
         CredentialInputValidator, CredentialInputUpdater {
 
     private static final Logger logger = Logger.getLogger(MySQLUserStorageProvider.class.getName());
+    private static final Map<String, String> PARAM_TO_SQL_FIELD = new HashMap<>();
+
+    static {
+        PARAM_TO_SQL_FIELD.put("userId", "_id");
+        PARAM_TO_SQL_FIELD.put("email", "email");
+        PARAM_TO_SQL_FIELD.put("firstName", "first_name");
+        PARAM_TO_SQL_FIELD.put("lastName", "last_name");
+        // Добавьте другие маппинги по мере необходимости
+    }
 
     private KeycloakSession session;
     private ComponentModel model;
@@ -257,23 +263,31 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
 
 
     @Override
-    public Stream<UserModel> searchForUserStream(RealmModel realm, String search) {
-        logger.info("Searching users with search string: " + search);
-        List<UserModel> users = new ArrayList<>();
-        try {
-            PreparedStatement statement = connection.prepareStatement("SELECT * FROM users WHERE email LIKE ? OR users.first_name LIKE ? OR users.last_name LIKE ?");
-            statement.setString(1, "%" + search + "%");
-            statement.setString(2, "%" + search + "%");
-            statement.setString(3, "%" + search + "%");
-            ResultSet resultSet = statement.executeQuery();
-            while (resultSet.next()) {
-                users.add(createAdapter(realm, resultSet));
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return users.stream();
+public Stream<UserModel> searchForUserStream(RealmModel realm, String search) {
+    logger.info("Searching users with search string: " + search);
+    List<UserModel> users = new ArrayList<>();
+    if (search == null || search.trim().isEmpty()) {
+        return users.stream(); // Return an empty stream if the search string is empty or null.
     }
+    try {
+        // Prepare a SQL statement to search users by email, first name, or last name
+        String sql = "SELECT * FROM users WHERE email LIKE ? OR first_name LIKE ? OR last_name LIKE ?";
+        PreparedStatement statement = connection.prepareStatement(sql);
+        String searchPattern = "%" + search + "%";
+        statement.setString(1, searchPattern); // Set the search pattern for the email
+        statement.setString(2, searchPattern); // Set the search pattern for the first name
+        statement.setString(3, searchPattern); // Set the search pattern for the last name
+
+        ResultSet resultSet = statement.executeQuery();
+        while (resultSet.next()) {
+            users.add(createAdapter(realm, resultSet)); // Assuming createAdapter method properly initializes user objects.
+        }
+    } catch (Exception e) {
+        logger.severe("Error searching for users: " + e.getMessage());
+        e.printStackTrace();
+    }
+    return users.stream(); // Convert the list of users to a Stream for returning.
+}
 
     @Override
     public Stream<UserModel> searchForUserStream(RealmModel realm, Map<String, String> params, Integer firstResult, Integer maxResults) {
@@ -281,22 +295,30 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
         List<UserModel> users = new ArrayList<>();
         try {
             StringBuilder query = new StringBuilder("SELECT * FROM users WHERE 1=1");
-            for (String key : params.keySet()) {
-                query.append(" AND ").append(key).append(" = ?");
+
+            List<Object> queryParameters = new ArrayList<>();
+            for (Map.Entry<String, String> entry : params.entrySet()) {
+                String sqlField = PARAM_TO_SQL_FIELD.get(entry.getKey());
+                if (sqlField != null) {
+                    query.append(" AND ").append(sqlField).append(" = ?");
+                    queryParameters.add(entry.getValue());
+                }
             }
             query.append(" LIMIT ? OFFSET ?");
+            queryParameters.add(maxResults);
+            queryParameters.add(firstResult);
+
             PreparedStatement statement = connection.prepareStatement(query.toString());
-            int index = 1;
-            for (String key : params.keySet()) {
-                statement.setString(index++, params.get(key));
+            for (int i = 0; i < queryParameters.size(); i++) {
+                statement.setObject(i + 1, queryParameters.get(i));
             }
-            statement.setInt(index++, maxResults);
-            statement.setInt(index, firstResult);
+
             ResultSet resultSet = statement.executeQuery();
             while (resultSet.next()) {
                 users.add(createAdapter(realm, resultSet));
             }
         } catch (Exception e) {
+            logger.severe("Error searching for users: " + e.getMessage());
             e.printStackTrace();
         }
         return users.stream();
