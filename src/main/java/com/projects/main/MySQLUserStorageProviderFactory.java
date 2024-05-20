@@ -17,6 +17,8 @@ public class MySQLUserStorageProviderFactory implements UserStorageProviderFacto
         return new MySQLUserStorageProvider(session, model);
     }
 
+
+
     @Override
     public String getId() {
         return PROVIDER_NAME;

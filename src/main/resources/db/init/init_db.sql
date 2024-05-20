@@ -6,7 +6,7 @@ CREATE TABLE users
     first_name    VARCHAR(255),
     last_name     VARCHAR(255),
     email         VARCHAR(255) UNIQUE,
-    pin_code      VARCHAR(10),
+    pin_code      VARCHAR(255),
     phone_number  VARCHAR(20),
     avatar        VARCHAR(255),
     user_role     ENUM('MANAGER', 'AGENT'),
@@ -14,3 +14,5 @@ CREATE TABLE users
     telegram_url  VARCHAR(255),
     instagram_url VARCHAR(255)
 );
+
+ALTER TABLE users MODIFY pin_code VARCHAR(255);

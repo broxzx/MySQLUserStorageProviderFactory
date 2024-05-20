@@ -7,6 +7,7 @@ import org.keycloak.credential.CredentialInputUpdater;
 import org.keycloak.credential.CredentialInputValidator;
 import org.keycloak.credential.CredentialModel;
 import org.keycloak.models.*;
+import org.keycloak.storage.StorageId;
 import org.keycloak.storage.UserStorageProvider;
 import org.keycloak.storage.user.UserLookupProvider;
 import org.keycloak.storage.user.UserQueryProvider;
@@ -35,7 +36,7 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
         PARAM_TO_SQL_FIELD.put("email", "email");
         PARAM_TO_SQL_FIELD.put("firstName", "first_name");
         PARAM_TO_SQL_FIELD.put("lastName", "last_name");
-        // add other mappings
+        // todo: other mappings
     }
 
     private KeycloakSession session;
@@ -68,8 +69,10 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
     public UserModel getUserById(RealmModel realm, String id) {
         logger.info("Getting user by ID: " + id);
         try {
+            String persistenceId = StorageId.externalId(id);
+            logger.info("External ID: " + persistenceId);
             PreparedStatement statement = connection.prepareStatement("SELECT * FROM users WHERE _id = ?");
-            statement.setString(1, id);
+            statement.setString(1, persistenceId);
             ResultSet resultSet = statement.executeQuery();
             if (resultSet.next()) {
                 return createAdapter(realm, resultSet);
@@ -110,72 +113,16 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
                 .build();
 
         return user;
-//        return new AbstractUserAdapter(session, realm, model) {
-//            @Override
-//            public String getUsername() {
-//                try {
-//                    return resultSet.getString("email");
-//                } catch (Exception e) {
-//                    throw new RuntimeException(e);
-//                }
-//            }
-//
-//            @Override
-//            public String getEmail() {
-//                try {
-//                    return resultSet.getString("email");
-//                } catch (Exception e) {
-//                    throw new RuntimeException(e);
-//                }
-//            }
-//
-//            @Override
-//            public SubjectCredentialManager credentialManager() {
-//                return null;
-//            }
-//
-//            @Override
-//            public String getFirstName() {
-//                try {
-//                    return resultSet.getString("firstName");
-//                } catch (Exception e) {
-//                    throw new RuntimeException(e);
-//                }
-//            }
-//
-//            @Override
-//            public String getLastName() {
-//                try {
-//                    return resultSet.getString("lastName");
-//                } catch (Exception e) {
-//                    throw new RuntimeException(e);
-//                }
-//            }
-//
-//            @Override
-//            public void setUsername(String username) {
-//                // Not needed for this implementation
-//            }
-//
-//            @Override
-//            public String getId() {
-//                try {
-//                    return resultSet.getString("_id");
-//                } catch (Exception e) {
-//                    throw new RuntimeException(e);
-//                }
-//            }
-//        };
     }
 
     @Override
-    public UserModel addUser(RealmModel realm, String username) {
-        logger.info("Adding user with username: " + username);
+    public UserModel addUser(RealmModel realm, String email) {
+        logger.info("Adding user with email: " + email);
         try {
             String id = UUID.randomUUID().toString();
             PreparedStatement statement = connection.prepareStatement("INSERT INTO users (_id, email) VALUES (?, ?)");
             statement.setString(1, id);
-            statement.setString(2, username);
+            statement.setString(2, email);
             statement.executeUpdate();
             return getUserById(realm, id);
         } catch (Exception e) {
@@ -187,8 +134,10 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
     public boolean removeUser(RealmModel realm, UserModel user) {
         logger.info("Removing user with ID: " + user.getId());
         try {
-            PreparedStatement statement = connection.prepareStatement("DELETE FROM users WHERE _id = ?");
-            statement.setString(1, user.getId());
+            //todo: test
+            String email = user.getEmail();
+            PreparedStatement statement = connection.prepareStatement("DELETE FROM users WHERE email = ?");
+            statement.setString(1, email);
             statement.executeUpdate();
             return true;
         } catch (Exception e) {
@@ -248,10 +197,11 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
             UserCredentialModel cred = (UserCredentialModel) input;
             String hashedPassword = BCrypt.hashpw(cred.getChallengeResponse(), BCrypt.gensalt());
             logger.info("Updating credentials for user ID: " + user.getId());
+            String userEmail = user.getEmail();
             try {
-                PreparedStatement statement = connection.prepareStatement("UPDATE users SET pin_code = ? WHERE _id = ?");
+                PreparedStatement statement = connection.prepareStatement("UPDATE users SET pin_code = ? WHERE email = ?");
                 statement.setString(1, hashedPassword);
-                statement.setString(2, user.getId());
+                statement.setString(2, userEmail);
                 statement.executeUpdate();
                 return true;
             } catch (Exception e) {
@@ -263,31 +213,31 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
 
 
     @Override
-public Stream<UserModel> searchForUserStream(RealmModel realm, String search) {
-    logger.info("Searching users with search string: " + search);
-    List<UserModel> users = new ArrayList<>();
-    if (search == null || search.trim().isEmpty()) {
-        return users.stream(); // Return an empty stream if the search string is empty or null.
-    }
-    try {
-        // Prepare a SQL statement to search users by email, first name, or last name
-        String sql = "SELECT * FROM users WHERE email LIKE ? OR first_name LIKE ? OR last_name LIKE ?";
-        PreparedStatement statement = connection.prepareStatement(sql);
-        String searchPattern = "%" + search + "%";
-        statement.setString(1, searchPattern); // Set the search pattern for the email
-        statement.setString(2, searchPattern); // Set the search pattern for the first name
-        statement.setString(3, searchPattern); // Set the search pattern for the last name
-
-        ResultSet resultSet = statement.executeQuery();
-        while (resultSet.next()) {
-            users.add(createAdapter(realm, resultSet)); // Assuming createAdapter method properly initializes user objects.
+    public Stream<UserModel> searchForUserStream(RealmModel realm, String search) {
+        logger.info("Searching users with search string: " + search);
+        List<UserModel> users = new ArrayList<>();
+        if (search == null || search.trim().isEmpty()) {
+            return users.stream(); // Return an empty stream if the search string is empty or null.
         }
-    } catch (Exception e) {
-        logger.severe("Error searching for users: " + e.getMessage());
-        e.printStackTrace();
+        try {
+            // Prepare a SQL statement to search users by email, first name, or last name
+            String sql = "SELECT * FROM users WHERE email LIKE ? OR first_name LIKE ? OR last_name LIKE ?";
+            PreparedStatement statement = connection.prepareStatement(sql);
+            String searchPattern = "%" + search + "%";
+            statement.setString(1, searchPattern);
+            statement.setString(2, searchPattern);
+            statement.setString(3, searchPattern);
+
+            ResultSet resultSet = statement.executeQuery();
+            while (resultSet.next()) {
+                users.add(createAdapter(realm, resultSet));
+            }
+        } catch (Exception e) {
+            logger.severe("Error searching for users: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return users.stream();
     }
-    return users.stream(); // Convert the list of users to a Stream for returning.
-}
 
     @Override
     public Stream<UserModel> searchForUserStream(RealmModel realm, Map<String, String> params, Integer firstResult, Integer maxResults) {

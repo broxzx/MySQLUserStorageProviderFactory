@@ -11,11 +11,10 @@ import org.keycloak.storage.adapter.AbstractUserAdapter;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 public class CustomUser extends AbstractUserAdapter {
 
-    private UUID _id;
+    private String _id;
 
     private String firstName;
     private String lastName;
@@ -29,8 +28,6 @@ public class CustomUser extends AbstractUserAdapter {
 
     private UserRoles userRole;
 
-
-    private Socials userSocials;
 
     private CustomUser(KeycloakSession session, RealmModel realm,
                        ComponentModel storageProviderModel,
