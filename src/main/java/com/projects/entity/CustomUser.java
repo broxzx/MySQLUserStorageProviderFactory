@@ -1,18 +1,20 @@
 package com.projects.entity;
 
+import lombok.extern.slf4j.Slf4j;
 import org.keycloak.common.util.MultivaluedHashMap;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.credential.LegacyUserCredentialManager;
-import org.keycloak.models.KeycloakSession;
-import org.keycloak.models.RealmModel;
-import org.keycloak.models.SubjectCredentialManager;
-import org.keycloak.models.UserModel;
+import org.keycloak.models.*;
 import org.keycloak.storage.adapter.AbstractUserAdapter;
 
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.*;
+import java.util.stream.Stream;
 
+@Slf4j
 public class CustomUser extends AbstractUserAdapter {
 
     private UUID _id;
@@ -32,7 +34,20 @@ public class CustomUser extends AbstractUserAdapter {
 
     private Socials userSocials;
 
-    private CustomUser(KeycloakSession session, RealmModel realm,
+    private static Connection connection;
+
+    static {
+        try {
+            connection = DriverManager.getConnection(
+                    "jdbc:mysql://my-sql-db:3306/user-db",
+                    "admin",
+                    "admin");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public CustomUser(KeycloakSession session, RealmModel realm,
                        ComponentModel storageProviderModel,
                        String email,
                        String firstName,
@@ -118,6 +133,67 @@ public class CustomUser extends AbstractUserAdapter {
                     firstName,
                     lastName);
 
+        }
+    }
+
+    @Override
+    public Stream<RoleModel> getRoleMappingsStream() {
+        return getRoleMappingsInternal().stream();
+    }
+
+    @Override
+    protected Set<RoleModel> getRoleMappingsInternal() {
+        Set<RoleModel> roles = new HashSet<>();
+        if (userRole != null) {
+            RoleModel roleModel = realm.getRole(userRole.toString());
+            if (roleModel != null) {
+                roles.add(roleModel);
+            }
+        }
+        return roles;
+    }
+
+    @Override
+    public void grantRole(RoleModel role) {
+        log.info("Granting role: " + role.getName() + " to user: " + email);
+        if (!hasRole(role)) {
+            userRole = UserRoles.valueOf(role.getName());
+            updateUserRoleInDatabase(_id, role.getName());
+        } else {
+            log.info("User already has role: {}", role.getName());
+        }
+    }
+
+    @Override
+    public void deleteRoleMapping(RoleModel role) {
+        log.info("Deleting role: " + role.getName() + " from user: " + email);
+        if (hasRole(role)) {
+            userRole = null;
+            updateUserRoleInDatabase(_id, null);
+        } else {
+            log.info("User does not have role: {}", role.getName());
+        }
+    }
+
+    @Override
+    public boolean hasRole(RoleModel role) {
+        boolean hasRole = userRole != null && userRole.toString().equals(role.getName());
+        log.info("User: {} has role {}: {}", email, role.getName(), hasRole);
+        return hasRole;
+    }
+
+    private void updateUserRoleInDatabase(UUID userId, String roleName) {
+        String sql = "UPDATE users SET user_role = ? WHERE _id = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            if (roleName != null) {
+                statement.setString(1, roleName);
+            } else {
+                statement.setNull(1, java.sql.Types.VARCHAR);
+            }
+            statement.setObject(2, userId);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to update user role in database", e);
         }
     }
 }

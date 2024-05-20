@@ -10,6 +10,7 @@ import org.keycloak.models.*;
 import org.keycloak.storage.StorageId;
 import org.keycloak.storage.UserStorageProvider;
 import org.keycloak.storage.user.UserLookupProvider;
+import org.keycloak.storage.user.UserQueryMethodsProvider;
 import org.keycloak.storage.user.UserQueryProvider;
 import org.keycloak.storage.user.UserRegistrationProvider;
 import org.mindrot.jbcrypt.BCrypt;
@@ -25,7 +26,7 @@ import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 public class MySQLUserStorageProvider implements UserStorageProvider,
-        UserLookupProvider, UserRegistrationProvider, UserQueryProvider,
+        UserLookupProvider, UserRegistrationProvider, UserQueryProvider, UserQueryMethodsProvider,
         CredentialInputValidator, CredentialInputUpdater {
 
     private static final Logger logger = Logger.getLogger(MySQLUserStorageProvider.class.getName());
