@@ -28,6 +28,8 @@ public class UserAdapter extends AbstractUserAdapterFederatedStorage {
     private String keycloakId;
     private Connection connection;
 
+
+
     public UserAdapter(KeycloakSession session, RealmModel realm, ComponentModel componentModel, User user) {
         super(session, realm, componentModel);
         this.user = user;

@@ -67,11 +67,11 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
 
     @Override
     public UserModel getUserById(RealmModel realm, String id) {
-        logger.info("Getting user by ID: " + id);
+        logger.info("getUserById: Getting user by ID: " + id);
         try {
             String persistenceId = StorageId.externalId(id);
             logger.info("External ID: " + persistenceId);
-            PreparedStatement statement = connection.prepareStatement("SELECT * FROM users WHERE _id = ?");
+            PreparedStatement statement = connection.prepareStatement("SELECT * FROM users WHERE email = ?");
             statement.setString(1, persistenceId);
             ResultSet resultSet = statement.executeQuery();
             if (resultSet.next()) {
@@ -84,11 +84,11 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
     }
 
     @Override
-    public UserModel getUserByUsername(RealmModel realm, String username) {
-        logger.info("Getting user by username: " + username);
+    public UserModel getUserByUsername(RealmModel realm, String email) {
+        logger.info("getUserByUsername: Getting user by email: " + email);
         try {
             PreparedStatement statement = connection.prepareStatement("SELECT * FROM users WHERE email = ?");
-            statement.setString(1, username);
+            statement.setString(1, email);
             ResultSet resultSet = statement.executeQuery();
             if (resultSet.next()) {
                 return createAdapter(realm, resultSet);
@@ -136,6 +136,7 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
         try {
             //todo: test
             String email = user.getEmail();
+            logger.info("userEmail: " + email);
             PreparedStatement statement = connection.prepareStatement("DELETE FROM users WHERE email = ?");
             statement.setString(1, email);
             statement.executeUpdate();
@@ -217,10 +218,9 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
         logger.info("Searching users with search string: " + search);
         List<UserModel> users = new ArrayList<>();
         if (search == null || search.trim().isEmpty()) {
-            return users.stream(); // Return an empty stream if the search string is empty or null.
+            return users.stream();
         }
         try {
-            // Prepare a SQL statement to search users by email, first name, or last name
             String sql = "SELECT * FROM users WHERE email LIKE ? OR first_name LIKE ? OR last_name LIKE ?";
             PreparedStatement statement = connection.prepareStatement(sql);
             String searchPattern = "%" + search + "%";
