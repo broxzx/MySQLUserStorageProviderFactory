@@ -1,7 +1,9 @@
 package com.projects.main;
 
-import com.projects.entity.CustomUser;
+import com.projects.entity.UserAdapter;
+import jakarta.persistence.EntityManager;
 import org.keycloak.component.ComponentModel;
+import org.keycloak.connections.jpa.JpaConnectionProvider;
 import org.keycloak.credential.CredentialInput;
 import org.keycloak.credential.CredentialInputUpdater;
 import org.keycloak.credential.CredentialInputValidator;
@@ -42,10 +44,12 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
     private KeycloakSession session;
     private ComponentModel model;
     private Connection connection;
+    private EntityManager em;
 
     public MySQLUserStorageProvider(KeycloakSession session, ComponentModel model) {
         this.session = session;
         this.model = model;
+        em = session.getProvider(JpaConnectionProvider.class, "user-store").getEntityManager();
         try {
             this.connection = DriverManager.getConnection(
                     "jdbc:mysql://my-sql-db:3306/user-db",
@@ -71,7 +75,8 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
         try {
             String persistenceId = StorageId.externalId(id);
             logger.info("External ID: " + persistenceId);
-            PreparedStatement statement = connection.prepareStatement("SELECT * FROM users WHERE _id = ?");
+
+            PreparedStatement statement = connection.prepareStatement("SELECT * FROM users WHERE email = ?");
             statement.setString(1, persistenceId);
             ResultSet resultSet = statement.executeQuery();
             if (resultSet.next()) {
@@ -106,7 +111,7 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
 
     private UserModel createAdapter(RealmModel realm, ResultSet rs) throws Exception {
         DateFormat fmt = new SimpleDateFormat("yyyy-MM-dd");
-        CustomUser user = new CustomUser.Builder(session, realm, model)
+        UserAdapter user = new UserAdapter.Builder(session, realm, model)
                 .email(rs.getString("email"))
                 .firstName(rs.getString("first_name"))
                 .lastName(rs.getString("last_name"))
