@@ -1,6 +1,7 @@
 package com.projects.main;
 
 import com.projects.entity.CustomUser;
+import com.projects.entity.User;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.credential.CredentialInput;
 import org.keycloak.credential.CredentialInputUpdater;
@@ -107,7 +108,9 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
 
     private UserModel createAdapter(RealmModel realm, ResultSet rs) throws Exception {
         DateFormat fmt = new SimpleDateFormat("yyyy-MM-dd");
+//        User user = new User();
         CustomUser user = new CustomUser.Builder(session, realm, model)
+                ._id(rs.getString("_id"))
                 .email(rs.getString("email"))
                 .firstName(rs.getString("first_name"))
                 .lastName(rs.getString("last_name"))

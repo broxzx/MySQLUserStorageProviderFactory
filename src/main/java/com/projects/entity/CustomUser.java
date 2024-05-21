@@ -17,7 +17,7 @@ import java.util.stream.Stream;
 @Slf4j
 public class CustomUser extends AbstractUserAdapter {
 
-    private UUID _id;
+    private String _id;
 
     private String firstName;
     private String lastName;
@@ -49,6 +49,7 @@ public class CustomUser extends AbstractUserAdapter {
 
     public CustomUser(KeycloakSession session, RealmModel realm,
                        ComponentModel storageProviderModel,
+                       String _id,
                        String email,
                        String firstName,
                        String lastName) {
@@ -56,7 +57,7 @@ public class CustomUser extends AbstractUserAdapter {
         this.email = email;
         this.firstName = firstName;
         this.lastName = lastName;
-
+        this._id = _id;
     }
 
     @Override
@@ -99,6 +100,7 @@ public class CustomUser extends AbstractUserAdapter {
         private final KeycloakSession session;
         private final RealmModel realm;
         private final ComponentModel storageProviderModel;
+        private String _id;
         private String email;
         private String firstName;
         private String lastName;
@@ -124,11 +126,17 @@ public class CustomUser extends AbstractUserAdapter {
             return this;
         }
 
+        public CustomUser.Builder _id(String _id) {
+            this._id = _id;
+            return this;
+        }
+
         public CustomUser build() {
             return new CustomUser(
                     session,
                     realm,
                     storageProviderModel,
+                    _id,
                     email,
                     firstName,
                     lastName);
@@ -150,12 +158,13 @@ public class CustomUser extends AbstractUserAdapter {
                 roles.add(roleModel);
             }
         }
+        log.info("getRoleMappingsInternal: {}", roles.size());
         return roles;
     }
 
     @Override
     public void grantRole(RoleModel role) {
-        log.info("Granting role: " + role.getName() + " to user: " + email);
+        log.info("Granting role: {} to user: {}", role.getName(), email);
         if (!hasRole(role)) {
             userRole = UserRoles.valueOf(role.getName());
             updateUserRoleInDatabase(_id, role.getName());
@@ -182,7 +191,8 @@ public class CustomUser extends AbstractUserAdapter {
         return hasRole;
     }
 
-    private void updateUserRoleInDatabase(UUID userId, String roleName) {
+    private void updateUserRoleInDatabase(String userId, String roleName) {
+        log.info("updateUserRoleInDatabase: userId {}", userId);
         String sql = "UPDATE users SET user_role = ? WHERE _id = ?";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             if (roleName != null) {
