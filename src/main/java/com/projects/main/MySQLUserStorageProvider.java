@@ -17,12 +17,10 @@ import org.keycloak.storage.user.UserQueryProvider;
 import org.keycloak.storage.user.UserRegistrationProvider;
 import org.mindrot.jbcrypt.BCrypt;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
+import java.sql.*;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -193,6 +191,24 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
         if (!(credentialInput instanceof UserCredentialModel)) {
             return false;
         }
+
+        String email = user.getEmail();
+        try {
+            PreparedStatement preparedStatement = connection.prepareStatement("SELECT c.pre_paid FROM companies c JOIN users u ON (c._id = u.company_id) WHERE u.email = ?");
+            preparedStatement.setString(1, email);
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            if (resultSet.next()) {
+                Timestamp prePaid = resultSet.getTimestamp("pre_paid");
+                if (prePaid == null) {
+                    return false;
+                }
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
 
         UserCredentialModel cred = (UserCredentialModel) credentialInput;
 
