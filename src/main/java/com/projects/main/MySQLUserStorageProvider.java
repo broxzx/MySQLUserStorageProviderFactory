@@ -2,6 +2,7 @@ package com.projects.main;
 
 import com.projects.entity.CustomUser;
 import com.projects.entity.User;
+import com.projects.entity.UserRoles;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.credential.CredentialInput;
 import org.keycloak.credential.CredentialInputUpdater;
@@ -107,16 +108,20 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
     }
 
     private UserModel createAdapter(RealmModel realm, ResultSet rs) throws Exception {
+        //todo: refactor
         DateFormat fmt = new SimpleDateFormat("yyyy-MM-dd");
-//        User user = new User();
-        CustomUser user = new CustomUser.Builder(session, realm, model)
-                ._id(rs.getString("_id"))
-                .email(rs.getString("email"))
-                .firstName(rs.getString("first_name"))
-                .lastName(rs.getString("last_name"))
-                .build();
+        String id = rs.getString("_id");
+        String firstName = rs.getString("first_name");
+        String lastName = rs.getString("last_name");
+        String email = rs.getString("email");
+        String pinCode = rs.getString("pin_code");
+        String userRoleField = rs.getString("user_role");
+        UserRoles userRole = userRoleField != null ? UserRoles.valueOf(userRoleField) : null;
 
-        return user;
+        User user = new User(id, firstName, lastName, email, pinCode, userRole);
+        CustomUser customUser = new CustomUser(session, realm, model, user);
+
+        return customUser;
     }
 
     @Override
@@ -128,7 +133,15 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
             statement.setString(1, id);
             statement.setString(2, email);
             statement.executeUpdate();
-            return getUserById(realm, id);
+            UserModel userById = getUserById(realm, id);
+            //todo: nullpointerex.
+            logger.info("user id: " + userById.getId());
+            logger.info("user email: " + userById.getEmail());
+            logger.info("user first name: " + userById.getFirstName());
+            logger.info("user last name: " + userById.getLastName());
+            logger.info("user role: " + userById.getRoleMappingsStream());
+
+            return userById;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -177,19 +190,30 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
 
     @Override
     public boolean isValid(RealmModel realm, UserModel user, CredentialInput credentialInput) {
-        if (!(credentialInput instanceof UserCredentialModel)) return false;
+        if (!(credentialInput instanceof UserCredentialModel)) {
+            return false;
+        }
+
         UserCredentialModel cred = (UserCredentialModel) credentialInput;
 
         logger.info("Validating credentials for user ID: " + user.getId());
         try {
-            PreparedStatement statement = connection.prepareStatement("SELECT pin_code FROM users WHERE _id = ?");
-            statement.setString(1, user.getId());
+            PreparedStatement statement = connection.prepareStatement("SELECT pin_code FROM users WHERE email = ?");
+            String string = user.getId().split(":")[2];
+            statement.setString(1, string);
             ResultSet resultSet = statement.executeQuery();
             if (resultSet.next()) {
                 String storedPinCode = resultSet.getString("pin_code");
-                return BCrypt.checkpw(cred.getChallengeResponse(), storedPinCode);
+                logger.info("Stored pin_code: " + storedPinCode);
+                logger.info("Provided challenge response: " + cred.getChallengeResponse());
+                boolean isValid = BCrypt.checkpw(cred.getChallengeResponse(), storedPinCode);
+                logger.info("Credential validation result: " + isValid);
+                return isValid;
+            } else {
+                logger.info("No user found with ID: " + string);
             }
         } catch (Exception e) {
+            logger.severe("Error validating user credentials: " + e.getMessage());
             e.printStackTrace();
         }
         return false;

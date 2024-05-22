@@ -4,23 +4,21 @@ public class User {
 
 
     private String _id;
-
     private String firstName;
     private String lastName;
     private String email;
-
-
     private String pinCode;
-    private String phoneNumber;
-    private String avatar;
-
-
     private UserRoles userRole;
 
 
-    private Socials userSocials;
-
-    // Getters and setters
+    public User(String _id, String firstName, String lastName, String email, String pinCode, UserRoles userRole) {
+        this._id = _id;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.email = email;
+        this.pinCode = pinCode;
+        this.userRole = userRole;
+    }
 
     public String get_id() {
         return _id;
@@ -62,22 +60,6 @@ public class User {
         this.pinCode = pinCode;
     }
 
-    public String getPhoneNumber() {
-        return phoneNumber;
-    }
-
-    public void setPhoneNumber(String phoneNumber) {
-        this.phoneNumber = phoneNumber;
-    }
-
-    public String getAvatar() {
-        return avatar;
-    }
-
-    public void setAvatar(String avatar) {
-        this.avatar = avatar;
-    }
-
     public UserRoles getUserRole() {
         return userRole;
     }
@@ -86,11 +68,5 @@ public class User {
         this.userRole = userRole;
     }
 
-    public Socials getUserSocials() {
-        return userSocials;
-    }
 
-    public void setUserSocials(Socials userSocials) {
-        this.userSocials = userSocials;
-    }
 }
