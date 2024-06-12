@@ -20,7 +20,7 @@ import org.mindrot.jbcrypt.BCrypt;
 import java.sql.*;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.*;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -200,7 +200,7 @@ public class MySQLUserStorageProvider implements UserStorageProvider,
 
             if (resultSet.next()) {
                 Timestamp prePaid = resultSet.getTimestamp("pre_paid");
-                if (prePaid == null) {
+                if (prePaid == null || prePaid.before(new Date())) {
                     return false;
                 }
             }
